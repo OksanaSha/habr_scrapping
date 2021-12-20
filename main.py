@@ -43,19 +43,34 @@ def find_keywords(article):
     hubs = article.find_all('a', class_='tm-article-snippet__hubs-item-link')
     hubs = [hub.find('span').text.lower() for hub in hubs]
     article_prev = get_article_preview(article)
-    if keywords_in_article(title_text, hubs, article_prev):
+    href = title['href']
+    url = 'https://habr.com' + href
+    article_text = get_article(url)
+    if keywords_in_article(title_text, hubs, article_prev, article_text):
         date = find_date(article)
-        href = title['href']
-        url = 'https://habr.com' + href
         info_dict = [date, title_text, url]
     return info_dict
 
-def keywords_in_article(title, hubs, preview, keywords=KEYWORDS):
+def keywords_in_article(title, hubs, preview, artickle, keywords=KEYWORDS):
     title_words = set(re.findall('\w+', title.lower()))
     article_prev_words = set(re.findall('\w+', preview.lower()))
     hubs_words = set(re.findall('\w+', ' '.join(hubs)))
-    if keywords & (title_words | article_prev_words | hubs_words):
+    article_words = set(re.findall('\w+', artickle.lower()))
+    if keywords & (title_words | article_prev_words | hubs_words | article_words):
         return True
+
+def get_article(url):
+    response = requests.get(url=url)
+    response.raise_for_status()
+    text = response.text
+    soup = bs4.BeautifulSoup(text, features='html.parser')
+    article_text_v2 = soup.find('div', class_='article-formatted-body article-formatted-body_version-2')
+    if article_text_v2:
+        article_text = article_text_v2.text
+    else:
+        article_text_v1 = soup.find('div',class_='article-formatted-body article-formatted-body_version-1')
+        article_text = article_text_v1.text
+    return article_text
 
 if __name__ == '__main__':
     response = requests.get('https://habr.com/ru/all/', headers=HEADERS)
